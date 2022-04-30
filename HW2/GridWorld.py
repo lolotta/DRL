@@ -37,13 +37,19 @@ class GridWorld:
         self.grid: np.ndarray = np.array([[Tile() for j in range(size[0])] for i in range(size[1])])
         self.hard_code_grid()
 
-        self.agent_position: np.ndarray = np.array([0, 0])
+        self.agent_position = np.array([0,0])
+        self.set_agent_position(self.agent_position)
 
         self.action_mapping: dict = {0: np.array([-1, 0]), 1: np.array([1, 0]), 2: np.array([0, -1]), 3: np.array([0, 1])}
 
 
     def reset(self):
         self.__init__()
+
+    def set_agent_position(self, new_position):
+        self.grid[tuple(self.agent_position)].agent_presence = False
+        self.agent_position: np.ndarray = np.array(new_position)
+        self.grid[tuple(self.agent_position)].agent_presence = True
 
     def step(self, action: int):
 
@@ -92,10 +98,7 @@ class GridWorld:
         new_position = self.agent_position + self.action_mapping[action]
 
         if self.check_position(new_position):
-            self.grid[tuple(self.agent_position)].agent_presence = False
-            self.agent_position = new_position
-            self.grid[tuple(self.agent_position)].agent_presence = True
-
+            self.set_agent_position(np.array(new_position))
 
     def check_position(self, new_position):
         if not self.check_borders(new_position):
@@ -127,20 +130,5 @@ class GridWorld:
 
     def get_terminal(self):
         return self.grid[tuple(self.agent_position)].terminal
-
-
-gridWorld = GridWorld()
-print(gridWorld)
-print(gridWorld.agent_position)
-print(gridWorld.step(3))
-print(gridWorld.step(1))
-print(gridWorld.step(3))
-print(gridWorld.step(3))
-print(gridWorld.step(3))
-print(gridWorld.step(1))
-print(gridWorld.step(1))
-
-print(gridWorld)
-print(gridWorld.agent_position)
 
 
