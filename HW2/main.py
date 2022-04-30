@@ -1,18 +1,19 @@
 from GridWorld import GridWorld
+from Agent import Agent
 
-gridWorld = GridWorld()
-print(gridWorld)
-print(gridWorld.agent_position)
-print(gridWorld.step(3))
-print(gridWorld.step(1))
-print(gridWorld.step(3))
-print(gridWorld.step(3))
-print(gridWorld.step(3))
-print(gridWorld.step(1))
-print(gridWorld.step(1))
+environment = GridWorld()
 
-gridWorld.visualize()
-gridWorld.reset()
-print(gridWorld)
+print("1-Step SARSA")
+agent = Agent((5,5), 4, n_step=1)
+agent.run(environment=environment, episodes=300)
+print("Q-Values: \n", agent.Q_table)
 
-gridWorld.visualize()
+print("5-Step SARSA")
+agent = Agent((5,5), 4, n_step=5)
+agent.run(environment=environment, episodes=300)
+print("Q-Values: \n", agent.Q_table)
+
+print("10-Step SARSA")
+agent = Agent((5,5), 4, n_step=10)
+agent.run(environment=environment, episodes=300)
+print("Q-Values: \n", agent.Q_table)

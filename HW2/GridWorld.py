@@ -1,4 +1,6 @@
 import random
+from typing import Tuple
+
 import numpy as np
 
 class Tile:
@@ -32,7 +34,7 @@ class Tile:
 
 class GridWorld:
 
-    def __init__(self, size=(5,5)):
+    def __init__(self, size: Tuple[int, int]=(5,5)):
         self.grid_size: tuple[int, int] = size
         self.grid: np.ndarray = np.array([[Tile() for j in range(size[0])] for i in range(size[1])])
         self.hard_code_grid()
@@ -42,18 +44,7 @@ class GridWorld:
 
         self.action_mapping: dict = {0: np.array([-1, 0]), 1: np.array([1, 0]), 2: np.array([0, -1]), 3: np.array([0, 1])}
 
-
-    def reset(self):
-        self.__init__()
-        return self.get_state()
-
-    def set_agent_position(self, new_position):
-        self.grid[tuple(self.agent_position)].agent_presence = False
-        self.agent_position: np.ndarray = np.array(new_position)
-        self.grid[tuple(self.agent_position)].agent_presence = True
-
     def step(self, action: int):
-
         self.move(action)
 
         state = self.get_state()
@@ -62,35 +53,12 @@ class GridWorld:
 
         return state, reward, terminal
 
+    def reset(self):
+        self.__init__()
+        return self.get_state(), self.get_reward(), self.get_terminal()
+
     def visualize(self):
         print(self)
-
-    def hard_code_grid(self):
-        # Set Starting Point
-        self.grid[0, 0].starting = True
-
-        # Set Terminal Point
-        self.grid[4, 4].terminal = True
-        self.grid[4, 4].reward = 1.0
-
-        # Set Blocked Tiles
-        self.grid[2, 2].blocked = True
-        self.grid[2, 3].blocked = True
-        self.grid[3, 2].blocked = True
-
-        # Set Negative Reward Tiles
-        self.grid[0, 2].reward = -0.5
-        self.grid[1, 1].reward = -0.5
-        self.grid[3, 3].reward = -0.5
-
-        # Set Undeterministic Tiles / Windy Tiles
-        self.grid[3,4].windiness = 0.5
-        self.grid[2,4].windiness = 0.2
-        self.grid[1,3].windiness = 0.2
-        self.grid[4,1].windiness = 0.2
-
-    def __repr__(self):
-        return ''.join(f'{str(list)} \n' for list in self.grid)
 
     def move(self, action):
         if random.random() < self.grid[tuple(self.agent_position)].windiness:
@@ -100,6 +68,11 @@ class GridWorld:
 
         if self.check_position(new_position):
             self.set_agent_position(np.array(new_position))
+
+    def set_agent_position(self, new_position):
+        self.grid[tuple(self.agent_position)].agent_presence = False
+        self.agent_position: np.ndarray = np.array(new_position)
+        self.grid[tuple(self.agent_position)].agent_presence = True
 
     def check_position(self, new_position):
         if not self.check_borders(new_position):
@@ -132,4 +105,30 @@ class GridWorld:
     def get_terminal(self):
         return self.grid[tuple(self.agent_position)].terminal
 
+    def hard_code_grid(self):
+        # Set Starting Point
+        self.grid[0, 0].starting = True
+
+        # Set Terminal Point
+        self.grid[4, 4].terminal = True
+        self.grid[4, 4].reward = 1.0
+
+        # Set Blocked Tiles
+        self.grid[2, 2].blocked = True
+        self.grid[2, 3].blocked = True
+        self.grid[3, 2].blocked = True
+
+        # Set Negative Reward Tiles
+        self.grid[0, 2].reward = -0.5
+        self.grid[1, 1].reward = -0.5
+        self.grid[3, 3].reward = -0.5
+
+        # Set Undeterministic Tiles / Windy Tiles
+        self.grid[3,4].windiness = 0.5
+        self.grid[2,4].windiness = 0.2
+        self.grid[1,3].windiness = 0.2
+        self.grid[4,1].windiness = 0.2
+
+    def __repr__(self):
+        return ''.join(f'{str(list)} \n' for list in self.grid)
 

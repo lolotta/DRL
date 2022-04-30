@@ -11,7 +11,7 @@ class Agent:
     n_step: int
     learning_rate: float
     gamma: float
-    def __init__(self, state_space: int, action_space: int, epsilon: float = 0.1, n_step: int = 1, learning_rate: float = 0.1, gamma: float = 0.9) -> None:
+    def __init__(self, state_space: Tuple[int, int], action_space: int, epsilon: float = 0.1, n_step: int = 1, learning_rate: float = 0.01, gamma: float = 0.9) -> None:
         self.state_space = state_space
         self.action_space = action_space
         self.epsilon = epsilon
@@ -35,16 +35,17 @@ class Agent:
         
         return action
 
-    def run(self, environment: GridWorld, episodes: int = 100):
+    def run(self, environment: GridWorld, episodes: int = 10000):
         for episode in range(episodes):
             states= []
             actions = []
             rewards = []
 
-            start_state = environment.reset()
+            start_state, start_reward, start_terminal = environment.reset()
             action = self.take_action(start_state)
             
             states.append(start_state)
+            rewards.append((start_reward))
             actions.append(action)
 
             terminal_step = float("Inf")
@@ -67,8 +68,8 @@ class Agent:
 
                 if tau >= 0:
                     G_return = 0
-                    for i in range(tau + 1, min(tau + self.n_step, terminal_step)):
-                        G_return += self.gamma ** ( i - tau - 1) * rewards[i]
+                    for i in range(tau, min(tau + self.n_step, terminal_step)):
+                        G_return += self.gamma ** ( i + 1 - tau - 1) * rewards[i + 1]
 
                     if tau + self.n_step < terminal_step:
                         G_return += self.gamma ** self.n_step * self.Q_table[states[tau + self.n_step][0], states[tau + self.n_step][1], actions[tau + self.n_step]] #TODO G????
@@ -77,10 +78,7 @@ class Agent:
 
                 step+=1
 
+            if episode % 10 == 0:
+                print(f"Episode: {episode} - Steps: {step} - Reward: {np.sum(rewards)}")
+
             
-
-
-agent = Agent((5,5), 4)
-
-agent.run(environment=GridWorld())
-print(agent.Q_table)
