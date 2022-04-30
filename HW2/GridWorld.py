@@ -45,6 +45,7 @@ class GridWorld:
 
     def reset(self):
         self.__init__()
+        return self.get_state()
 
     def set_agent_position(self, new_position):
         self.grid[tuple(self.agent_position)].agent_presence = False

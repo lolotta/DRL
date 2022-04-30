@@ -1,4 +1,4 @@
-from HW2.GridWorld import GridWorld
+from GridWorld import GridWorld
 
 gridWorld = GridWorld()
 print(gridWorld)
