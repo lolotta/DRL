@@ -13,15 +13,20 @@ class Agent:
     env: gym.Env
     epsilon: float
     gamma: float
-    optimizer = tf.optimizers.Adam(lr=0.001)
+    optimizer: tf.keras.optimizers.Optimizer
     loss_function = tf.keras.losses.MeanSquaredError()
 
-    def __init__(self, env: gym.Env, epsilon: float = 0.15, gamma = 0.99):
-        self.dqn = DQN()
-        self.target_dqn = DQN()
+    def __init__(self, env: gym.Env, epsilon: float = 0.15, gamma = 0.99, learning_rate = 0.001):
         self.env = env
         self.epsilon = epsilon
         self.gamma = gamma
+        self.learning_rate = learning_rate
+
+        self.dqn = DQN()
+        self.target_dqn = DQN()
+
+        self.optimizer = tf.optimizers.Adam(lr=self.learning_rate)
+
 
     def take_action(self, state):
         if random.random() < self.epsilon:
