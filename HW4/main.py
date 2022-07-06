@@ -40,8 +40,10 @@ def test():
     steps = 0
     while True:
 
-        logits, action = agent.take_action(np.array([state]))
-        action = np.array(logits[0])
+        log_probability, action = agent.take_action(np.array([state]))
+        action = np.array(action[0])
+
+        print(action)
 
         next_state, reward, done, info = env.step(action)
         next_state = process_state_image(next_state)
@@ -65,15 +67,13 @@ def train():
     for i in range(5):
         trajectory = agent.sample_trajectory()
         trajectories.append(trajectory)
-    trajectory = agent.sample_trajectory()
-    agent.learn(trajectory)
+
+    agent.learn(trajectories)
 
 
 for episode in range(episodes):
-
-    test()
-
     train()
+    test()
 
 # Close the env
 env.close()
