@@ -8,6 +8,7 @@ from HW4.Actor import Actor
 from HW4.Critic import Critic
 import random
 import tensorflow as tf
+import tensorflow_probability as tfp
 
 class Agent:
     actor: tf.keras.Model
@@ -45,7 +46,7 @@ class Agent:
 
         while not done:
             log_probability, action = self.take_action(state)
-            action = np.array(action[0])
+            action = np.squeeze(action.numpy())
 
             next_state, reward, done, info = self.env.step(action)
             next_state = self.process_state_image(next_state)
@@ -66,30 +67,25 @@ class Agent:
 
 
     def take_action(self, states, training=False, action=None):
+        # Kein Numpy verwenden
+        # Evaluate log_probabilities
+        # Batch normalization as image normalization
         mu, sigma = self.actor(states, training=training)
 
         if action is None:
-            action = tf.random.normal([1], mean=mu, stddev=sigma).numpy()
-
-            action[0][0] = np.clip(action[0][0], -1, 1)
-            action[0][1] = np.clip(action[0][1], 0, 1)
-            action[0][2] = np.clip(action[0][2], 0, 1)
-
-        sigma = tf.clip_by_value(sigma, 0.01, 3.0)
-        mu = tf.clip_by_value(mu, -1, 1)
-        mu = tf.clip_by_value(mu, 0, 1)
-        mu = tf.clip_by_value(mu, 0, 1)
+            epsilon = tf.random.normal([1], mean=0, stddev=1)
+            action = mu + epsilon * sigma
 
         # Obtain pdf of Gaussian distribution
-        pdf_value = tf.exp(-0.5 *((action - mu) / (sigma))**2) * 1 / (sigma*tf.sqrt(2 * np.pi))
+        dist = tfp.distributions.Normal(loc=mu, scale=sigma)
+        log_probability = dist.log_prob(action)
+        # pdf_value = tf.exp(-0.5 * ((action - mu) / (sigma))**2) * 1 / (sigma * tf.sqrt(2 * np.pi))
 
         # Compute log probability
-        log_probability = tf.math.log(pdf_value + 1e-5)
+        # log_probability = tf.math.log(pdf_value + 1e-5)
         log_probability = tf.reduce_sum(log_probability, 1, keepdims=True)
 
         return log_probability, action
-
-
 
     def learn(self, trajectories: tuple):
         self.train_actor(trajectories)
@@ -99,13 +95,18 @@ class Agent:
         accumulated_gradients = [tf.zeros_like(trainable_variables) for trainable_variables in self.actor.trainable_variables]
         for trajectory in trajectories:
             states, actions, rewards, log_probabilities = trajectory
+            states = np.vstack(states)
+            # states = np.array(states)
+            # actions = np.array(actions)
+            # rewards = np.array(rewards)
+            # log_probabilities = np.array(log_probabilities)
+
             # np.squeeze(np.vstack())
 
             reward_to_go = [np.sum(rewards[i:] * (self.gamma ** np.array(range(i, len(rewards))))) for i in range(len(rewards))]
 
             with tf.GradientTape() as tape:
-                states = np.array(states)
-                log_probabilities, actions = self.take_action(states, training=True)
+                log_probabilities, actions = self.take_action(states, action=actions, training=True)
                 loss = tf.reduce_sum(- log_probabilities * reward_to_go)
 
             gradients = tape.gradient(loss, self.actor.trainable_variables)

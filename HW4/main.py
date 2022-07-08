@@ -39,9 +39,9 @@ def test():
     episode_rewards = []
     steps = 0
     while True:
-
-        log_probability, action = agent.take_action(np.array([state]))
-        action = np.array(action[0])
+        state = np.array([state])
+        log_probability, action = agent.take_action(state)
+        action = np.squeeze(action.numpy())
 
         print(action)
 
