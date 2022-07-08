@@ -21,7 +21,6 @@ class Actor(tf.keras.Model):
         # self.flatten = tf.keras.layers.Flatten()
         self.globalPooling = tf.keras.layers.GlobalAvgPool2D()
 
-        # Noch eine Dense Layer jeweils
         self.mu1 = tf.keras.layers.Dense(1, activation="tanh")
         self.mu2 = tf.keras.layers.Dense(1, activation="sigmoid")
         self.mu3 = tf.keras.layers.Dense(1, activation="sigmoid")

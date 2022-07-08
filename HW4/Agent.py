@@ -27,7 +27,7 @@ class Agent:
         self.learning_rate = learning_rate
 
         self.actor = Actor()
-        # self.critic = Critic()
+        self.critic = Critic()
 
         self.optimizer_actor = tf.optimizers.Adam(learning_rate=self.learning_rate)
         self.optimizer_critic = tf.optimizers.Adam(learning_rate=self.learning_rate)
@@ -42,6 +42,7 @@ class Agent:
         state_buffer = []
         action_buffer = []
         reward_buffer = []
+        next_state_buffer = []
         log_probabilities_buffer = []
 
         while not done:
@@ -55,6 +56,7 @@ class Agent:
             state_buffer.append(state)
             action_buffer.append(action)
             reward_buffer.append(reward)
+            next_state_buffer.append(next_state)
             log_probabilities_buffer.append(log_probability)
 
             step += 1
@@ -63,7 +65,7 @@ class Agent:
             if step == step_size:
                 break
 
-        return (state_buffer, action_buffer, reward_buffer, log_probabilities_buffer)
+        return (state_buffer, action_buffer, reward_buffer, next_state_buffer, log_probabilities_buffer)
 
 
     def take_action(self, states, training=False, action=None):
@@ -88,26 +90,22 @@ class Agent:
         return log_probability, action
 
     def learn(self, trajectories: tuple):
+
         self.train_actor(trajectories)
-        # self.train_critic(trajectories)
+        self.train_critic(trajectories)
 
     def train_actor(self, trajectories):
         accumulated_gradients = [tf.zeros_like(trainable_variables) for trainable_variables in self.actor.trainable_variables]
         for trajectory in trajectories:
-            states, actions, rewards, log_probabilities = trajectory
+            states, actions, rewards, next_states, log_probabilities = trajectory
             states = np.vstack(states)
-            # states = np.array(states)
-            # actions = np.array(actions)
-            # rewards = np.array(rewards)
-            # log_probabilities = np.array(log_probabilities)
+            next_states = np.vstack(next_states)
 
-            # np.squeeze(np.vstack())
-
-            reward_to_go = [np.sum(rewards[i:] * (self.gamma ** np.array(range(i, len(rewards))))) for i in range(len(rewards))]
+            advantages = rewards + self.gamma * self.critic(next_states) - self.critic(states)
 
             with tf.GradientTape() as tape:
                 log_probabilities, actions = self.take_action(states, action=actions, training=True)
-                loss = tf.reduce_sum(- log_probabilities * reward_to_go)
+                loss = tf.reduce_sum(- log_probabilities * advantages)
 
             gradients = tape.gradient(loss, self.actor.trainable_variables)
             accumulated_gradients = [(acum_grad + grad) for acum_grad, grad in zip(accumulated_gradients, gradients)]
@@ -124,33 +122,35 @@ class Agent:
     def train_critic(self, trajectories):
         accumulated_gradients = [tf.zeros_like(trainable_variables) for trainable_variables in self.actor.trainable_variables]
         for trajectory in trajectories:
-            states, actions, rewards, log_probabilities = trajectory
+            states, actions, rewards, next_states, log_probabilities = trajectory
+            states = np.vstack(states)
+
+            rewards_to_go = [np.sum(rewards[i:] * (self.gamma ** np.array(range(i, len(rewards))))) for i in range(len(rewards))]
 
             with tf.GradientTape() as tape:
                 value_prediction = self.critic(states, training=True)
-                assert value_prediction.shape == tdc_targets.shape
+
                 mse = tf.keras.losses.MeanSquaredError()
-                mse(tf.stop_gradient(td_targets), value_prediction)
-                loss = mse(tf.stop_gradient(td_targets), value_prediction)
+                loss = mse(tf.stop_gradient(rewards_to_go), value_prediction)
 
             gradients = tape.gradient(loss, self.critic.trainable_variables)
             accumulated_gradients = [(acum_grad + grad) for acum_grad, grad in zip(accumulated_gradients, gradients)]
         accumulated_gradients = [this_grad / len(trajectories) for this_grad in accumulated_gradients]
         self.optimizer_critic.apply_gradients(zip(accumulated_gradients, self.critic.trainable_variables))
 
-    def gae_target(self, rewards, v_values, next_v_value, done):
+    def gae_target(self, rewards, v_values, next_value):
         n_step_targets = np.zeros_like(rewards)
         gae = np.zeros_like(rewards)
         gae_cumulative = 0
-        forward_val = 0
+        forward_value = 0
 
-        if not done:
-            forward_val = next_v_value
+        forward_value = next_value
 
         for k in reversed(range(0, len(rewards))):
-            delta = rewards[k] + self.gamma * forward_val - v_values[k]
+            delta = rewards[k] + self.gamma * forward_value - v_values[k]
             gae_cumulative = self.gamma * self.lmbda * gae_cumulative + delta
             gae[k] = gae_cumulative
-            forward_val = v_values[k]
+            forward_value = v_values[k]
             n_step_targets[k] = gae[k] + v_values[k]
+
         return gae, n_step_targets
