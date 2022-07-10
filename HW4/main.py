@@ -31,7 +31,7 @@ steps = 0
 
 env = gym.make('CarRacing-v1')
 # replay_buffer = ReplayBuffer(10000)
-agent: Agent = Agent(env, epsilon)
+agent: Agent = Agent(env)
 def test():
     done = False
     state = env.reset()

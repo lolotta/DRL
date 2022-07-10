@@ -90,22 +90,37 @@ class Agent:
         return log_probability, action
 
     def learn(self, trajectories: tuple):
-
-        self.train_actor(trajectories)
-        self.train_critic(trajectories)
-
-    def train_actor(self, trajectories):
-        accumulated_gradients = [tf.zeros_like(trainable_variables) for trainable_variables in self.actor.trainable_variables]
+        gaes = []
+        td_targets = []
         for trajectory in trajectories:
             states, actions, rewards, next_states, log_probabilities = trajectory
             states = np.vstack(states)
             next_states = np.vstack(next_states)
 
-            advantages = rewards + self.gamma * self.critic(next_states) - self.critic(states)
+            values = self.critic(states)
+            next_values = self.critic(next_states)
+
+            values = tf.squeeze(values)
+            next_values = tf.squeeze(next_values)
+
+            gae, td_target = self.gae_target(rewards, values, next_values)
+
+            gaes.append(gae)
+            td_targets.append(td_target)
+
+        self.train_actor(trajectories, gaes)
+        self.train_critic(trajectories, td_targets)
+
+    def train_actor(self, trajectories, gaes):
+        accumulated_gradients = [tf.zeros_like(trainable_variables) for trainable_variables in self.actor.trainable_variables]
+        for trajectory, gae in zip(trajectories, gaes):
+            states, actions, rewards, next_states, log_probabilities = trajectory
+            states = np.vstack(states)
+            next_states = np.vstack(next_states)
 
             with tf.GradientTape() as tape:
                 log_probabilities, actions = self.take_action(states, action=actions, training=True)
-                loss = tf.reduce_sum(- log_probabilities * advantages)
+                loss = tf.reduce_sum(- log_probabilities * gae)
 
             gradients = tape.gradient(loss, self.actor.trainable_variables)
             accumulated_gradients = [(acum_grad + grad) for acum_grad, grad in zip(accumulated_gradients, gradients)]
@@ -119,26 +134,24 @@ class Agent:
         state = np.expand_dims(state, axis=-1)
         return state
 
-    def train_critic(self, trajectories):
+    def train_critic(self, trajectories, td_targets):
         accumulated_gradients = [tf.zeros_like(trainable_variables) for trainable_variables in self.actor.trainable_variables]
-        for trajectory in trajectories:
+        for trajectory, td_target in zip(trajectories, td_targets):
             states, actions, rewards, next_states, log_probabilities = trajectory
             states = np.vstack(states)
-
-            rewards_to_go = [np.sum(rewards[i:] * (self.gamma ** np.array(range(i, len(rewards))))) for i in range(len(rewards))]
 
             with tf.GradientTape() as tape:
                 value_prediction = self.critic(states, training=True)
 
                 mse = tf.keras.losses.MeanSquaredError()
-                loss = mse(tf.stop_gradient(rewards_to_go), value_prediction)
+                loss = mse(value_prediction, td_target)
 
             gradients = tape.gradient(loss, self.critic.trainable_variables)
             accumulated_gradients = [(acum_grad + grad) for acum_grad, grad in zip(accumulated_gradients, gradients)]
         accumulated_gradients = [this_grad / len(trajectories) for this_grad in accumulated_gradients]
         self.optimizer_critic.apply_gradients(zip(accumulated_gradients, self.critic.trainable_variables))
 
-    def gae_target(self, rewards, v_values, next_value):
+    def gae_target(self, rewards, values, next_value):
         n_step_targets = np.zeros_like(rewards)
         gae = np.zeros_like(rewards)
         gae_cumulative = 0
@@ -147,10 +160,10 @@ class Agent:
         forward_value = next_value
 
         for k in reversed(range(0, len(rewards))):
-            delta = rewards[k] + self.gamma * forward_value - v_values[k]
+            delta = rewards[k] + self.gamma * forward_value - values[k]
             gae_cumulative = self.gamma * self.lmbda * gae_cumulative + delta
-            gae[k] = gae_cumulative
-            forward_value = v_values[k]
-            n_step_targets[k] = gae[k] + v_values[k]
+            gae[k] = tf.reduce_sum(gae_cumulative)
+            forward_value = values[k]
+            n_step_targets[k] = gae[k] + values[k]
 
         return gae, n_step_targets
